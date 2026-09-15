@@ -49,6 +49,28 @@ async def root(request: Request) -> JSONResponse:
 
 
 @mcp.tool()
+async def configure_canvas_credentials(
+    canvas_api_token: str, canvas_base_url: Optional[str] = None
+) -> str:
+    """
+    Configura o actualiza tu Token y URL de Canvas LMS dinámicamente en tiempo de ejecución.
+    Útil cuando el servidor está alojado públicamente y no se pueden guardar tokens en GitHub.
+    """
+    os.environ["CANVAS_API_TOKEN"] = canvas_api_token.strip()
+    if canvas_base_url:
+        os.environ["CANVAS_BASE_URL"] = canvas_base_url.strip().rstrip("/")
+    try:
+        user = await canvas_client.test_connection()
+        return (
+            f"✅ Credenciales configuradas correctamente para esta sesión.\n"
+            f"- Conectado a: {canvas_client.base_url}\n"
+            f"- Estudiante: {user.get('name')} (ID: {user.get('id')})"
+        )
+    except Exception as e:
+        return f"⚠️ Token recibido, pero la prueba de conexión a Canvas falló: {str(e)}"
+
+
+@mcp.tool()
 async def test_canvas_connection() -> str:
     """Verifica si la conexión con Canvas LMS y las credenciales (URL y Token) son válidas."""
     try:

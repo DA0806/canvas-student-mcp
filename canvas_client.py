@@ -49,15 +49,46 @@ class CanvasClient:
 
     @property
     def base_url(self) -> str:
+        # 1. Variable de entorno
         url = os.getenv("CANVAS_BASE_URL", "").strip().rstrip("/")
-        if not url:
-            # Fallback seguro por si no está configurada aún
-            return "https://canvas.instructure.com"
-        return url
+        if url:
+            return url
+        # 2. Header HTTP de la petición actual (enviado por cliente MCP / ChatGPT)
+        try:
+            from fastmcp.server.dependencies import get_http_request
+
+            req = get_http_request()
+            h_url = req.headers.get("x-canvas-base-url") or req.headers.get("x-canvas-url")
+            if h_url:
+                return h_url.strip().rstrip("/")
+        except Exception:
+            pass
+        # 3. Fallback seguro por defecto
+        return "https://canvas.instructure.com"
 
     @property
     def token(self) -> str:
-        return os.getenv("CANVAS_API_TOKEN", "").strip()
+        # 1. Variable de entorno
+        tok = os.getenv("CANVAS_API_TOKEN", "").strip()
+        if tok:
+            return tok
+        # 2. Header Authorization (Bearer token) o x-canvas-token enviado por ChatGPT
+        try:
+            from fastmcp.server.dependencies import get_http_request
+
+            req = get_http_request()
+            auth = req.headers.get("authorization", "")
+            if auth.lower().startswith("bearer "):
+                return auth[7:].strip()
+            elif auth:
+                return auth.strip()
+            h_tok = req.headers.get("x-canvas-token", "")
+            if h_tok:
+                return h_tok.strip()
+        except Exception:
+            pass
+        return ""
+
 
     def _get_headers(self) -> Dict[str, str]:
         if not self.token:
