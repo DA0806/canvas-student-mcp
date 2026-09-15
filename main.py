@@ -760,13 +760,26 @@ server = mcp
 app = mcp.http_app()
 
 if __name__ == "__main__":
-    # HTTP es el default (cloud). stdio solo si MCP_TRANSPORT=stdio (Claude Desktop local).
-    # Antes el default era stdio → en MCPHosting el proceso recibía EOF y salía con código 0.
-    target = os.getenv("MCP_TRANSPORT", "http")
-    if target == "stdio":
+    import socket
+
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "8000"))
+    requested_transport = os.getenv("MCP_TRANSPORT")
+
+    def _is_busy(h: str, p: int) -> bool:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.3)
+                return s.connect_ex((h, p)) == 0
+        except Exception:
+            return False
+
+    if _is_busy(host, port):
+        print(f"⚡ Puerto {host}:{port} ocupado por gateway del host. Conectando Canvas Student MCP en modo STDIO...", file=sys.stderr, flush=True)
+        mcp.run(transport="stdio")
+    elif requested_transport == "stdio":
         mcp.run(transport="stdio")
     else:
-        host = os.getenv("HOST", "0.0.0.0")
-        port = int(os.getenv("PORT", "8000"))
-        print(f"🚀 Canvas Student MCP → http://{host}:{port}", file=sys.stderr, flush=True)
-        mcp.run(transport="http", host=host, port=port)
+        target = requested_transport or "http"
+        print(f"🚀 Canvas Student MCP → http://{host}:{port} ({target})", file=sys.stderr, flush=True)
+        mcp.run(transport=target, host=host, port=port)
