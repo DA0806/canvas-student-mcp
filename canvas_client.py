@@ -12,6 +12,23 @@ from dotenv import load_dotenv
 # Cargar variables de entorno desde archivo .env local
 load_dotenv()
 
+# Fallback: si no están en el entorno, intentar cargar desde fastmcp.json (ideal para MCPHosting si el repo es privado)
+try:
+    import json
+    from pathlib import Path
+
+    _cfg_path = Path(__file__).parent / "fastmcp.json"
+    if _cfg_path.exists():
+        with open(_cfg_path, "r", encoding="utf-8") as _f:
+            _data = json.load(_f)
+            _env_vars = _data.get("deployment", {}).get("env", {})
+            for _k, _v in _env_vars.items():
+                if _k not in os.environ and _v:
+                    os.environ[_k] = str(_v)
+except Exception:
+    pass
+
+
 
 class CanvasAPIError(Exception):
     """Excepción para errores devueltos por la API de Canvas LMS."""
