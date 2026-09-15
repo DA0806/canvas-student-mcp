@@ -1,7 +1,8 @@
 {
   "$schema": "https://gofastmcp.com/public/schemas/fastmcp.json/v1.json",
   "source": {
-    "path": "main.py"
+    "path": "server.py",
+    "entrypoint": "mcp"
   },
   "deployment": {
     "transport": "http",

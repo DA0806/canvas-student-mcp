@@ -753,8 +753,11 @@ async def send_inbox_message(
 
 
 # ==========================================
-# PUNTO DE ENTRADA
+# RE-EXPORTACIÓN Y PUNTO DE ENTRADA
 # ==========================================
+
+server = mcp
+app = mcp.http_app()
 
 if __name__ == "__main__":
     # HTTP es el default (cloud). stdio solo si MCP_TRANSPORT=stdio (Claude Desktop local).
