@@ -5,33 +5,13 @@ Servidor MCP completo para asistentes de IA para interactuar con Canvas LMS
 """
 
 import os
+import sys
 from typing import List, Optional
-import fastmcp
 from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from canvas_client import canvas_client, CanvasAPIError
 from utils import clean_html, format_date, truncate_text
-
-# ──────────────────────────────────────────────────────
-# Configuración global de FastMCP (MCPHosting / cloud)
-# ──────────────────────────────────────────────────────
-_cloud_port = os.getenv("PORT")
-_transport = os.getenv("MCP_TRANSPORT") or os.getenv("FASTMCP_TRANSPORT")
-
-fastmcp.settings.host = os.getenv("HOST", "0.0.0.0")
-
-if _cloud_port:
-    try:
-        fastmcp.settings.port = int(_cloud_port)
-    except ValueError:
-        pass
-
-# Si hay PORT o MCP_TRANSPORT definidos asumimos entorno cloud → forzar HTTP.
-if _cloud_port or _transport:
-    fastmcp.settings.transport = (
-        _transport if _transport in {"http", "sse", "streamable-http"} else "http"
-    )
 
 # Inicialización del servidor MCP
 mcp = FastMCP(
@@ -49,7 +29,7 @@ async def health_check(request: Request) -> JSONResponse:
         "status": "healthy",
         "service": "Canvas Student MCP",
         "version": "1.0.0",
-        "transport": fastmcp.settings.transport,
+        "transport": os.getenv("MCP_TRANSPORT", "http"),
     })
 
 
@@ -777,13 +757,13 @@ async def send_inbox_message(
 # ==========================================
 
 if __name__ == "__main__":
-    if _cloud_port or _transport:
-        # Entorno cloud: MCPHosting, Render, Railway...
-        target = fastmcp.settings.transport or "http"
-        host = fastmcp.settings.host
-        port = fastmcp.settings.port
-        print(f"🚀 Canvas Student MCP → {target} en http://{host}:{port}")
-        mcp.run(transport=target, host=host, port=port)
-    else:
-        # Uso local: Claude Desktop, Cursor, etc.
+    # HTTP es el default (cloud). stdio solo si MCP_TRANSPORT=stdio (Claude Desktop local).
+    # Antes el default era stdio → en MCPHosting el proceso recibía EOF y salía con código 0.
+    target = os.getenv("MCP_TRANSPORT", "http")
+    if target == "stdio":
         mcp.run(transport="stdio")
+    else:
+        host = os.getenv("HOST", "0.0.0.0")
+        port = int(os.getenv("PORT", "8000"))
+        print(f"🚀 Canvas Student MCP → http://{host}:{port}", file=sys.stderr, flush=True)
+        mcp.run(transport="http", host=host, port=port)

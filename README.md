@@ -160,7 +160,8 @@ Añade lo siguiente a tu archivo `claude_desktop_config.json` (`%APPDATA%\Claude
       ],
       "env": {
         "CANVAS_BASE_URL": "https://tu-universidad.instructure.com",
-        "CANVAS_API_TOKEN": "tu_token_aqui"
+        "CANVAS_API_TOKEN": "tu_token_aqui",
+        "MCP_TRANSPORT": "stdio"
       }
     }
   }
@@ -175,6 +176,7 @@ Configura un nuevo servidor MCP tipo `stdio`:
 - **Variables de Entorno**:
   - `CANVAS_BASE_URL`: URL de tu institución.
   - `CANVAS_API_TOKEN`: Tu token de Canvas.
+  - `MCP_TRANSPORT`: `stdio` (obligatorio en local; el default ahora es `http` para cloud).
 
 ---
 
