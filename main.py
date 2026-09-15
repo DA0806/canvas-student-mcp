@@ -12,11 +12,22 @@ from starlette.routing import Route
 from canvas_client import canvas_client, CanvasAPIError
 from utils import clean_html, format_date, truncate_text
 
+import fastmcp
+
+# Configuración global de FastMCP para despliegues remotos y MCPHosting
+fastmcp.settings.host = os.getenv("HOST", "0.0.0.0")
+if "PORT" in os.environ:
+    try:
+        fastmcp.settings.port = int(os.environ["PORT"])
+    except ValueError:
+        pass
+
 # Inicialización del servidor MCP
 mcp = FastMCP(
     "Canvas Student MCP",
     instructions="Servidor MCP para interactuar con Canvas LMS en nombre de un estudiante. Permite consultar cursos, tareas, calificaciones, anuncios, foros, módulos, archivos, agenda y enviar entregas.",
 )
+
 
 
 # ==========================================
