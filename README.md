@@ -117,6 +117,34 @@ CANVAS_API_TOKEN=tu_token_generado_aqui
 
 ---
 
+## ☁️ Despliegue en la Nube (MCPHosting, Render, Railway, Docker)
+
+El proyecto está 100% adaptado para desplegarse como servicio remoto en plataformas especializadas de MCP o contenedores en la nube:
+
+### Despliegue en [MCPHosting (mcphosting.io)](https://www.mcphosting.io)
+1. Inicia sesión en **MCPHosting** con tu cuenta de GitHub.
+2. Haz clic en **New Project** y selecciona tu repositorio `DA0806/canvas-student-mcp`.
+3. Configura las variables de entorno del proyecto en el dashboard de MCPHosting:
+   - `CANVAS_BASE_URL`: URL de tu institución educativa (ej: `https://canvas.instructure.com`).
+   - `CANVAS_API_TOKEN`: Tu token generado en Canvas.
+   - `MCP_TRANSPORT`: `http` (por defecto).
+4. Despliega el proyecto. MCPHosting compilará el contenedor utilizando el `Dockerfile` o `requirements.txt` y validará el endpoint de salud `/health`.
+5. Copia la URL pública generada (ej. `https://tu-slug.mcphosting.io/mcp`) para conectarlo con Claude, ChatGPT o Cursor de forma remota.
+
+### Despliegue con Docker
+```bash
+# Construir la imagen
+docker build -t canvas-student-mcp .
+
+# Correr el contenedor
+docker run -p 8000:8000 \
+  -e CANVAS_BASE_URL="https://tu-universidad.instructure.com" \
+  -e CANVAS_API_TOKEN="tu_token" \
+  canvas-student-mcp
+```
+
+---
+
 ## 🤖 Integración con Clientes MCP
 
 ### Configuración en Claude Desktop
