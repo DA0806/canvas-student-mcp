@@ -8,23 +8,58 @@ import os
 from typing import List, Optional
 import fastmcp
 from fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 from canvas_client import canvas_client, CanvasAPIError
 from utils import clean_html, format_date, truncate_text
 
-# Configuración global de FastMCP para despliegues remotos y MCPHosting.
-# MCPHosting pasa --host 0.0.0.0 automáticamente, pero también lo forzamos aquí.
+# ──────────────────────────────────────────────────────
+# Configuración global de FastMCP (MCPHosting / cloud)
+# ──────────────────────────────────────────────────────
+_cloud_port = os.getenv("PORT")
+_transport = os.getenv("MCP_TRANSPORT") or os.getenv("FASTMCP_TRANSPORT")
+
 fastmcp.settings.host = os.getenv("HOST", "0.0.0.0")
-if "PORT" in os.environ:
+
+if _cloud_port:
     try:
-        fastmcp.settings.port = int(os.environ["PORT"])
+        fastmcp.settings.port = int(_cloud_port)
     except ValueError:
         pass
+
+# Si hay PORT o MCP_TRANSPORT definidos asumimos entorno cloud → forzar HTTP.
+if _cloud_port or _transport:
+    fastmcp.settings.transport = (
+        _transport if _transport in {"http", "sse", "streamable-http"} else "http"
+    )
 
 # Inicialización del servidor MCP
 mcp = FastMCP(
     "Canvas Student MCP",
     instructions="Servidor MCP para interactuar con Canvas LMS en nombre de un estudiante. Permite consultar cursos, tareas, calificaciones, anuncios, foros, módulos, archivos, agenda y enviar entregas.",
 )
+
+
+# ──────────────────────────────────────────────────────
+# Health-check (requerido por MCPHosting y proxies)
+# ──────────────────────────────────────────────────────
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
+    return JSONResponse({
+        "status": "healthy",
+        "service": "Canvas Student MCP",
+        "version": "1.0.0",
+        "transport": fastmcp.settings.transport,
+    })
+
+
+@mcp.custom_route("/", methods=["GET"])
+async def root(request: Request) -> JSONResponse:
+    return JSONResponse({
+        "service": "Canvas Student MCP",
+        "mcp_endpoint": "/mcp",
+        "health_endpoint": "/health",
+    })
 
 
 
@@ -738,11 +773,17 @@ async def send_inbox_message(
 
 
 # ==========================================
-# PUNTO DE ENTRADA (USO LOCAL)
+# PUNTO DE ENTRADA
 # ==========================================
 
 if __name__ == "__main__":
-    # Modo stdio para uso local (Claude Desktop, Cursor, etc.)
-    # MCPHosting descubre el objeto `mcp` automáticamente y lo ejecuta
-    # con su propio runner; este bloque solo aplica al ejecutar directamente.
-    mcp.run(transport="stdio")
+    if _cloud_port or _transport:
+        # Entorno cloud: MCPHosting, Render, Railway...
+        target = fastmcp.settings.transport or "http"
+        host = fastmcp.settings.host
+        port = fastmcp.settings.port
+        print(f"🚀 Canvas Student MCP → {target} en http://{host}:{port}")
+        mcp.run(transport=target, host=host, port=port)
+    else:
+        # Uso local: Claude Desktop, Cursor, etc.
+        mcp.run(transport="stdio")
