@@ -6,15 +6,13 @@ Servidor MCP completo para asistentes de IA para interactuar con Canvas LMS
 
 import os
 from typing import List, Optional
+import fastmcp
 from fastmcp import FastMCP
-from starlette.responses import JSONResponse
-from starlette.routing import Route
 from canvas_client import canvas_client, CanvasAPIError
 from utils import clean_html, format_date, truncate_text
 
-import fastmcp
-
-# Configuración global de FastMCP para despliegues remotos y MCPHosting
+# Configuración global de FastMCP para despliegues remotos y MCPHosting.
+# MCPHosting pasa --host 0.0.0.0 automáticamente, pero también lo forzamos aquí.
 fastmcp.settings.host = os.getenv("HOST", "0.0.0.0")
 if "PORT" in os.environ:
     try:
@@ -740,45 +738,11 @@ async def send_inbox_message(
 
 
 # ==========================================
-# APLICACIÓN ASGI Y PUNTO DE ENTRADA (CLOUD & LOCAL)
+# PUNTO DE ENTRADA (USO LOCAL)
 # ==========================================
 
-def create_asgi_app():
-    """
-    Genera la aplicación ASGI Starlette con endpoint /health para despliegues
-    en plataformas de hosting (MCPHosting, Render, Railway, etc.).
-    """
-    transport = os.getenv("MCP_TRANSPORT", "http")
-    app_instance = mcp.http_app(transport=transport)
-
-    async def health_check(request):
-        return JSONResponse({
-            "status": "healthy",
-            "service": "Canvas Student MCP",
-            "version": "1.0.0",
-            "transport": transport
-        })
-
-    app_instance.routes.append(Route("/health", health_check))
-    app_instance.routes.append(Route("/", health_check))
-    return app_instance
-
-
-app = create_asgi_app()
-
 if __name__ == "__main__":
-    # Detección automática del entorno:
-    # Si PORT o MCP_TRANSPORT están definidos (común en MCPHosting, Docker o PaaS),
-    # se inicia en modo HTTP/SSE escuchando en 0.0.0.0:$PORT.
-    # De lo contrario, se ejecuta en modo STDIO estándar para clientes locales (Claude Desktop, Cursor).
-    cloud_port = os.getenv("PORT")
-    transport = os.getenv("MCP_TRANSPORT") or os.getenv("FASTMCP_TRANSPORT")
-
-    if cloud_port or (transport and transport in {"http", "sse", "streamable-http"}):
-        target_transport = transport if transport in {"http", "sse", "streamable-http"} else "http"
-        host = os.getenv("HOST", "0.0.0.0")
-        port = int(cloud_port or os.getenv("FASTMCP_PORT", "8000"))
-        print(f"🚀 Iniciando Canvas Student MCP en modo {target_transport} en http://{host}:{port}")
-        mcp.run(transport=target_transport, host=host, port=port)
-    else:
-        mcp.run(transport="stdio")
+    # Modo stdio para uso local (Claude Desktop, Cursor, etc.)
+    # MCPHosting descubre el objeto `mcp` automáticamente y lo ejecuta
+    # con su propio runner; este bloque solo aplica al ejecutar directamente.
+    mcp.run(transport="stdio")
