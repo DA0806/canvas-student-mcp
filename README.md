@@ -96,7 +96,8 @@ Un servidor **Model Context Protocol (MCP)** completo y optimizado para permitir
 
 ### 1. Clonar o ingresar a la carpeta del proyecto
 ```bash
-cd "d:\Proyectos\Visual Studio Projects\Canva Student MCP"
+git clone https://github.com/DA0806/canvas-student-mcp.git
+cd canvas-student-mcp
 ```
 
 ### 2. Instalar dependencias
@@ -156,7 +157,7 @@ Añade lo siguiente a tu archivo `claude_desktop_config.json` (`%APPDATA%\Claude
     "canvas-student": {
       "command": "python",
       "args": [
-        "d:\\Proyectos\\Visual Studio Projects\\Canva Student MCP\\main.py"
+        "/ruta/absoluta/a/canvas-student-mcp/main.py"
       ],
       "env": {
         "CANVAS_BASE_URL": "https://tu-universidad.instructure.com",
@@ -172,7 +173,7 @@ Añade lo siguiente a tu archivo `claude_desktop_config.json` (`%APPDATA%\Claude
 Configura un nuevo servidor MCP tipo `stdio`:
 - **Nombre**: `Canvas Student`
 - **Comando**: `python`
-- **Argumentos**: `d:/Proyectos/Visual Studio Projects/Canva Student MCP/main.py`
+- **Argumentos**: `/ruta/absoluta/a/canvas-student-mcp/main.py`
 - **Variables de Entorno**:
   - `CANVAS_BASE_URL`: URL de tu institución.
   - `CANVAS_API_TOKEN`: Tu token de Canvas.
