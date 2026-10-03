@@ -1,194 +1,266 @@
-# 🎓 Canvas Student MCP Server
+# Canvas Student MCP
 
-Un servidor **Model Context Protocol (MCP)** completo y optimizado para permitir a asistentes de Inteligencia Artificial (Claude Desktop, Cursor, Gemini, ChatGPT, Cline, etc.) interactuar fluidamente con la plataforma educativa **Canvas LMS (Canvas Student)** de Instructure en nombre de un estudiante.
+Servidor [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) para consultar Canvas LMS desde un asistente compatible. La ruta recomendada es local, para una sola persona, por STDIO. El proceso usa la cuenta de Canvas configurada en el archivo `.env` del proyecto.
 
----
+Esta documentación describe el estado del repositorio auditado el 2 de octubre de 2026. El proyecto no incluye un instalador, un paquete publicado, una imagen Docker, un lockfile ni una suite de pruebas.
 
-## 🌟 Características Principales
+## Índice
 
-- **28 herramientas especializadas** cubriendo el ciclo académico completo del estudiante.
-- **Optimizado para Asistentes IA**:
-  - Paginación automática (`per_page=50/100`) para no omitir materias ni tareas.
-  - Limpieza de HTML crudo a Markdown legible para ahorrar tokens y mejorar la comprensión del LLM.
-  - Formateo de fechas ISO 8601 a horarios legibles.
-  - Manejo amigable de permisos y restricciones institucionales.
-- **Arquitectura Asíncrona**: Basado en **FastMCP 4.x** y **HTTPX**.
+- [Requisitos y alcance](#requisitos-y-alcance)
+- [Instalación local](#instalación-local)
+- [Configurar Canvas](#configurar-canvas)
+- [Iniciar el servidor por STDIO](#iniciar-el-servidor-por-stdio)
+- [Conectar un cliente MCP](#conectar-un-cliente-mcp)
+- [Primera comprobación segura](#primera-comprobación-segura)
+- [Solucionar problemas](#solucionar-problemas)
+- [Catálogo de herramientas](#catálogo-de-herramientas)
+- [Límites actuales y seguridad](#límites-actuales-y-seguridad)
+- [HTTP y despliegue remoto](#http-y-despliegue-remoto)
+- [Accesibilidad e instalación futura](docs/accessibility-and-installation.md)
+- [Fuentes](#fuentes)
 
----
+## Requisitos y alcance
 
-## 📋 Catálogo de Herramientas MCP
+- Python 3.10 o posterior, que es el mínimo requerido por la versión actual de FastMCP.
+- Una cuenta de Canvas y un token personal de acceso permitido por tu institución.
+- Un cliente MCP que pueda iniciar un servidor local por STDIO.
+- Windows, macOS y Linux son rutas documentadas por sus comandos equivalentes; no se ha validado aquí una matriz completa de sistemas o clientes.
 
-### 1. Perfil y Conexión
-| Herramienta | Descripción |
-| :--- | :--- |
-| `test_canvas_connection` | Verifica credenciales, conectividad y muestra el usuario conectado. |
-| `get_student_profile` | Consulta información del estudiante (nombre, ID, correo institucional, biografía). |
+Las dependencias directas están en [`requirements.txt`](requirements.txt): FastMCP, HTTPX, python-dotenv, Pydantic, Uvicorn y Starlette. La instalación local verificada usa Python 3.14.4 y FastMCP 4.0.10 dentro de `.venv`.
 
-### 2. Cursos y Calificaciones
-| Herramienta | Descripción |
-| :--- | :--- |
-| `get_active_courses` | Lista cursos activos con ID, código, periodo académico y docentes asignados. |
-| `get_course_details` | Silabo completo del curso, fechas de inicio/fin y programa de la materia. |
-| `get_student_grades` | Calificaciones actuales y finales proyectadas por curso. |
+## Instalación local
 
-### 3. Tareas y Exámenes (Assignments & Quizzes)
-| Herramienta | Descripción |
-| :--- | :--- |
-| `get_course_assignments` | Tareas con fechas límite y estado de entrega (`upcoming`, `overdue`, `past`). |
-| `get_assignment_details` | Instrucciones limpias, puntos, formatos permitidos y rúbrica de evaluación. |
-| `get_quizzes` | Cuestionarios/exámenes con límite de tiempo e intentos permitidos. |
-| `get_quiz_details` | Instrucciones y configuración detallada de un cuestionario. |
+### Obtener el código
 
-### 4. Entregas y Retroalimentación
-| Herramienta | Descripción |
-| :--- | :--- |
-| `get_assignment_submission` | Consulta la entrega realizada, nota obtenida y comentarios del docente. |
-| `submit_assignment_text` | Realiza una entrega enviando texto enriquecido o código. |
-| `submit_assignment_url` | Realiza una entrega enviando un enlace web (Google Drive, GitHub, etc.). |
-| `add_submission_comment` | Envía un mensaje o aclaración al docente en una entrega existente. |
+Con Git:
 
-### 5. Agenda, To-Do y Entregas Faltantes
-| Herramienta | Descripción |
-| :--- | :--- |
-| `get_todo_items` | Tareas y actividades urgentes del panel To-Do de Canvas. |
-| `get_missing_submissions` | Identifica tareas pasadas de fecha que **aún no han sido entregadas**. |
-| `get_planner_items` | Agenda del planificador de Canvas en un rango de fechas. |
-| `get_calendar_events` | Eventos y citas del calendario escolar. |
-
-### 6. Anuncios y Foros
-| Herramienta | Descripción |
-| :--- | :--- |
-| `get_course_announcements` | Avisos oficiales publicados por profesores. |
-| `get_course_discussions` | Lista de foros de discusión activos en el curso. |
-| `get_discussion_entries` | Respuestas e intervenciones en un foro específico. |
-| `post_discussion_reply` | Publica una aportación o respuesta en un foro de discusión. |
-
-### 7. Módulos, Páginas y Archivos
-| Herramienta | Descripción |
-| :--- | :--- |
-| `get_course_modules` | Estructura temática/semanal de la clase con sus respectivos recursos. |
-| `get_course_pages` | Lista de páginas de contenido publicadas por el profesor. |
-| `get_page_content` | Lee el texto completo de una página de clase. |
-| `get_course_files` | Archivos (PDFs, lecturas, diapositivas) con buscador por nombre. |
-
-### 8. Bandeja de Mensajería (Inbox)
-| Herramienta | Descripción |
-| :--- | :--- |
-| `get_inbox_messages` | Mensajes recientes o no leídos en la bandeja de entrada. |
-| `get_conversation_detail` | Hilo completo de mensajes con un profesor o compañero. |
-| `send_inbox_message` | Envía un mensaje interno a través de Canvas. |
-
----
-
-## 🔑 Cómo Obtener tu Token de Canvas LMS
-
-1. Abre Canvas LMS en tu navegador (la URL de tu colegio o universidad).
-2. En la barra lateral izquierda, haz clic en **Cuenta (Account)** -> **Configuración (Settings)**.
-3. Desplázate hacia abajo hasta la sección **Tokens de acceso aprobados (Approved Integrations)**.
-4. Haz clic en el botón **+ Nuevo token de acceso (+ New Access Token)**.
-5. En "Propósito", escribe un nombre descriptivo (ej: `Asistente IA MCP`) y opcionalmente define una fecha de expiración.
-6. Haz clic en **Generar token**.
-7. **Copia el token inmediatamente**, ya que Canvas solo lo muestra una vez.
-
----
-
-## ⚙️ Configuración e Instalación
-
-### 1. Clonar o ingresar a la carpeta del proyecto
 ```bash
 git clone https://github.com/DA0806/canvas-student-mcp.git
 cd canvas-student-mcp
 ```
 
-### 2. Instalar dependencias
-```bash
-pip install -r requirements.txt
+Si no tienes Git, descarga el ZIP desde el repositorio al que tengas acceso, extráelo y abre una terminal en la carpeta que contiene `server.py`. No uses una ruta personal de ejemplo del equipo de otra persona.
+
+### Crear el entorno e instalar dependencias
+
+No hace falta activar el entorno virtual: usar el ejecutable de `.venv` evita que el cliente MCP dependa del `PATH` de la terminal.
+
+En Windows PowerShell:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-### 3. Configurar variables de entorno
-Copia `.env.example` a `.env`:
+En macOS o Linux:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+Si `py -3` o `python3` no existe, instala [Python desde su sitio oficial](https://www.python.org/downloads/) y vuelve a ejecutar el comando. El servidor se ejecuta desde esta copia local; no tiene un paquete publicado para instalar con `pip` o `uvx`.
+
+## Configurar Canvas
+
+Copia la plantilla y edita el archivo local `.env`:
+
+En Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+En macOS o Linux:
+
 ```bash
 cp .env.example .env
 ```
-Edita `.env` con tus datos:
+
+Completa únicamente estos valores:
+
 ```env
-CANVAS_BASE_URL=https://tu-universidad.instructure.com
-CANVAS_API_TOKEN=tu_token_generado_aqui
+CANVAS_BASE_URL=https://tu-institucion.instructure.com
+CANVAS_API_TOKEN=pega_aqui_el_token_personal
 ```
 
----
+`CANVAS_BASE_URL` debe ser el origen HTTPS que abre tu institución en el navegador. No agregues `/courses`, `/api/v1` ni una ruta de un curso. Si no se define, el cliente cae en `https://canvas.instructure.com`; confirma siempre que el origen sea el correcto antes de usar el token.
 
-## ☁️ Despliegue en la Nube (MCPHosting, Render, Railway, Docker)
+Para un uso personal o de prueba, Canvas permite crear el token desde **Cuenta → Configuración → Nuevo token de acceso**. La institución puede restringir esta opción, exigir expiración o revocar el token. Cópialo solo en `.env`; no lo pongas en comandos, capturas, mensajes, logs ni commits. El `.gitignore` debe mantener `.env` fuera del control de versiones.
 
-El proyecto está 100% adaptado para desplegarse como servicio remoto en plataformas especializadas de MCP o contenedores en la nube:
+El cliente carga primero las variables del entorno y luego el bloque `deployment.env` de `fastmcp.json` si existiera. En el archivo actual no hay credenciales allí. En HTTP también puede recibir el origen mediante `x-canvas-base-url`/`x-canvas-url` y el token mediante `Authorization: Bearer` o `x-canvas-token`; esa ruta no es la recomendada para uso local compartido.
 
-### Despliegue en [MCPHosting (mcphosting.io)](https://www.mcphosting.io)
-1. Inicia sesión en **MCPHosting** con tu cuenta de GitHub.
-2. Haz clic en **New Project** y selecciona tu repositorio `DA0806/canvas-student-mcp`.
-3. Configura las variables de entorno del proyecto en el dashboard de MCPHosting:
-   - `CANVAS_BASE_URL`: URL de tu institución educativa (ej: `https://canvas.instructure.com`).
-   - `CANVAS_API_TOKEN`: Tu token generado en Canvas.
-   - `MCP_TRANSPORT`: `http` (por defecto).
-4. Despliega el proyecto. MCPHosting compilará el contenedor utilizando el `Dockerfile` o `requirements.txt` y validará el endpoint de salud `/health`.
-5. Copia la URL pública generada (ej. `https://tu-slug.mcphosting.io/mcp`) para conectarlo con Claude, ChatGPT o Cursor de forma remota.
+## Iniciar el servidor por STDIO
 
-### Despliegue con Docker
+Usa el comando explícito de FastMCP. Así el transporte queda fijado en STDIO y no depende del `__main__` de `server.py` ni de que el puerto 8000 esté libre.
+
+En Windows PowerShell, desde la raíz del repositorio:
+
+```powershell
+$canvasMcpCommand = (Resolve-Path '.venv\Scripts\fastmcp.exe').Path
+$canvasMcpServer = (Resolve-Path 'server.py').Path
+& $canvasMcpCommand run $canvasMcpServer --transport stdio
+```
+
+En macOS o Linux:
+
 ```bash
-# Construir la imagen
-docker build -t canvas-student-mcp .
-
-# Correr el contenedor
-docker run -p 8000:8000 \
-  -e CANVAS_BASE_URL="https://tu-universidad.instructure.com" \
-  -e CANVAS_API_TOKEN="tu_token" \
-  canvas-student-mcp
+.venv/bin/fastmcp run "$(pwd)/server.py" --transport stdio
 ```
 
----
+El cliente puede ejecutar ese mismo comando cuando se conecte. No hace falta definir `MCP_TRANSPORT` si se usa `--transport stdio`. Como alternativa directa, el proceso acepta `MCP_TRANSPORT=stdio` con `python server.py`, pero la orden `fastmcp run ... --transport stdio` es la ruta principal documentada.
 
-## 🤖 Integración con Clientes MCP
+## Conectar un cliente MCP
 
-### Configuración en Claude Desktop
-Añade lo siguiente a tu archivo `claude_desktop_config.json` (`%APPDATA%\Claude\claude_desktop_config.json` en Windows):
+### Codex CLI
+
+La sintaxis local verificada es `codex mcp add NOMBRE -- COMANDO ARGUMENTOS`. En Windows PowerShell:
+
+```powershell
+$canvasMcpCommand = (Resolve-Path '.venv\Scripts\fastmcp.exe').Path
+$canvasMcpServer = (Resolve-Path 'server.py').Path
+codex mcp add canvas-student -- $canvasMcpCommand run $canvasMcpServer --transport stdio
+```
+
+El token permanece en `.env`; no lo añadas como argumento de `codex mcp add`.
+
+### Clientes que acepten una configuración JSON STDIO
+
+Adapta las rutas absolutas a tu equipo. Este ejemplo no incluye secretos:
 
 ```json
 {
   "mcpServers": {
     "canvas-student": {
-      "command": "python",
+      "command": "C:/ruta/canvas-student-mcp/.venv/Scripts/fastmcp.exe",
       "args": [
-        "/ruta/absoluta/a/canvas-student-mcp/main.py"
-      ],
-      "env": {
-        "CANVAS_BASE_URL": "https://tu-universidad.instructure.com",
-        "CANVAS_API_TOKEN": "tu_token_aqui",
-        "MCP_TRANSPORT": "stdio"
-      }
+        "run",
+        "C:/ruta/canvas-student-mcp/server.py",
+        "--transport",
+        "stdio"
+      ]
     }
   }
 }
 ```
 
-### Configuración en Cursor / Gemini / Cline / Roo Code
-Configura un nuevo servidor MCP tipo `stdio`:
-- **Nombre**: `Canvas Student`
-- **Comando**: `python`
-- **Argumentos**: `/ruta/absoluta/a/canvas-student-mcp/main.py`
-- **Variables de Entorno**:
-  - `CANVAS_BASE_URL`: URL de tu institución.
-  - `CANVAS_API_TOKEN`: Tu token de Canvas.
-  - `MCP_TRANSPORT`: `stdio` (obligatorio en local; el default ahora es `http` para cloud).
+Otros clientes deben documentar explícitamente que soportan servidores locales STDIO. No se ha validado en este repositorio una integración de interfaz concreta con Claude Desktop, Cursor, Gemini, Cline, Roo Code o ChatGPT. ChatGPT requiere un transporte remoto y una configuración compatible con su producto; no asumas que puede abrir STDIO local desde una conversación de escritorio.
 
----
+## Primera comprobación segura
 
-## 💬 Ejemplos de Preguntas para tu Asistente IA
+Antes de pedir datos académicos:
 
-Una vez conectado, podrás pedirle cosas como:
+1. Comprueba que el cliente descubre el servidor y las 29 herramientas durante el handshake.
+2. Ejecuta `test_canvas_connection` solo cuando hayas confirmado el origen y el token. Esta llamada sí contacta Canvas y usa la cuenta configurada.
+3. Después prueba `get_active_courses` y verifica que el resultado corresponde a tu cuenta.
 
-- *"¿Qué tareas tengo pendientes de entregar para esta semana en todos mis cursos?"*
-- *"Revisa si tengo entregas atrasadas o faltantes en Canvas."*
-- *"¿Cuál es mi promedio y calificación actual en cada asignatura?"*
-- *"Léeme las instrucciones y la rúbrica de la Tarea 3 del curso de Algoritmos."*
-- *"¿Qué avisos nuevos han publicado mis profesores en los últimos 7 días?"*
-- *"Busca diapositivas o PDFs subidos en la materia de Física."*
-- *"Entrega este enlace de Google Drive en la tarea de Proyecto Final."*
+El endpoint `/health`, si se expone por HTTP, solo confirma que el proceso está vivo. No comprueba la URL, el token ni el acceso a Canvas. Un fallo de `client.ping()` tampoco es un diagnóstico válido por sí mismo: el SDK actual puede responder `Method not found` a ese método.
+
+## Solucionar problemas
+
+| Problema | Siguiente acción |
+| --- | --- |
+| PowerShell no reconoce `py` | Ejecuta `python --version`. Si muestra Python 3.10 o posterior, usa `python -m venv .venv`; si no, instala Python y vuelve a abrir la terminal. |
+| Falta el token | Confirma que `.env` está en la misma carpeta que `server.py` y contiene `CANVAS_API_TOKEN`. Reinicia la conexión del cliente tras editarlo. |
+| Canvas devuelve 401 | Revisa el origen institucional y genera un token nuevo si el anterior expiró o fue revocado. |
+| Canvas devuelve 403 | Comprueba el permiso del curso o recurso con tu institución; cambiar el token no concede permisos nuevos. |
+| El cliente no descubre el servidor | Revisa las dos rutas absolutas y `--transport stdio`. Prueba el comando de arranque y consulta los errores del cliente sin compartir secretos. |
+| El servidor parece esperar sin responder | En STDIO espera mensajes de un cliente MCP. No abre una página web ni expone `/health`; termina la prueba manual con `Ctrl+C` y configura el cliente. |
+
+## Catálogo de herramientas
+
+El código registra 29 herramientas MCP. Las cinco herramientas que escriben en Canvas están marcadas con **Escritura Canvas** y no tienen una confirmación obligatoria en el servidor; revisa cada contenido antes de invocarlas y usa las aprobaciones que ofrezca tu cliente.
+
+### Credenciales y perfil
+
+| Herramienta | Acción |
+| --- | --- |
+| `configure_canvas_credentials` | Cambia URL y token para todo el proceso; no aísla sesiones ni escribe en Canvas. |
+| `test_canvas_connection` | Comprueba la conexión y devuelve el usuario de Canvas. |
+| `get_student_profile` | Consulta el perfil del estudiante. |
+
+### Cursos y calificaciones
+
+| Herramienta | Acción |
+| --- | --- |
+| `get_active_courses` | Lista los cursos activos. |
+| `get_course_details` | Consulta detalles y syllabus de un curso. |
+| `get_student_grades` | Consulta calificaciones actuales y finales proyectadas. |
+
+### Tareas y cuestionarios
+
+| Herramienta | Acción |
+| --- | --- |
+| `get_course_assignments` | Lista tareas y fechas de entrega. |
+| `get_assignment_details` | Lee instrucciones, puntos y rúbrica disponible. |
+| `get_quizzes` | Lista cuestionarios. |
+| `get_quiz_details` | Lee la configuración de un cuestionario. |
+
+### Entregas y retroalimentación
+
+| Herramienta | Acción |
+| --- | --- |
+| `get_assignment_submission` | Consulta una entrega y sus comentarios. |
+| `submit_assignment_text` | **Escritura Canvas:** envía texto o código a una tarea. |
+| `submit_assignment_url` | **Escritura Canvas:** envía una URL a una tarea. |
+| `add_submission_comment` | **Escritura Canvas:** agrega un comentario a una entrega. |
+
+### Agenda y pendientes
+
+| Herramienta | Acción |
+| --- | --- |
+| `get_todo_items` | Consulta el panel To-Do. |
+| `get_missing_submissions` | Busca entregas faltantes. |
+| `get_planner_items` | Consulta elementos del planificador. |
+| `get_calendar_events` | Consulta eventos del calendario. |
+
+### Anuncios y debates
+
+| Herramienta | Acción |
+| --- | --- |
+| `get_course_announcements` | Lee anuncios del curso. |
+| `get_course_discussions` | Lista debates del curso. |
+| `get_discussion_entries` | Lee intervenciones de un debate. |
+| `post_discussion_reply` | **Escritura Canvas:** publica una respuesta en un debate. |
+
+### Módulos, páginas y archivos
+
+| Herramienta | Acción |
+| --- | --- |
+| `get_course_modules` | Consulta módulos y recursos. |
+| `get_course_pages` | Lista páginas publicadas. |
+| `get_page_content` | Lee el contenido de una página. |
+| `get_course_files` | Busca archivos del curso por nombre. |
+
+### Bandeja de entrada
+
+| Herramienta | Acción |
+| --- | --- |
+| `get_inbox_messages` | Lista mensajes de la bandeja. |
+| `get_conversation_detail` | Lee un hilo de mensajes. |
+| `send_inbox_message` | **Escritura Canvas:** envía un mensaje interno. |
+
+## Límites actuales y seguridad
+
+- La configuración está pensada para una persona por proceso. No hay autenticación propia del servidor, aislamiento multiusuario ni control de organización. `configure_canvas_credentials` modifica el entorno global del proceso y no debe usarse para compartir un servidor HTTP entre cuentas.
+- Las cinco escrituras no tienen modo de solo lectura ni confirmación server-side. Ocultar una herramienta en la interfaz del cliente no es una barrera de seguridad.
+- `per_page=30/50/100` aumenta el tamaño de algunas respuestas, pero el cliente no sigue los enlaces `Link` de Canvas. Una lista puede quedar incompleta.
+- `clean_html` conserva algunos encabezados, enlaces y énfasis, pero elimina etiquetas restantes y no conserva de forma completa imágenes, texto alternativo, tablas, OCR ni estructura de documentos. No sube archivos ni resuelve cuestionarios.
+- `format_date` etiqueta la salida como UTC; no convierte la hora a la zona local y los offsets que no terminan en `Z` necesitan verificación en Canvas.
+- La herramienta puede truncar instrucciones o resultados extensos. Confirma el contenido completo y las fechas directamente en Canvas antes de entregar un trabajo.
+- Mantén el token en `.env`, evita pasarlo como argumento y no lo pegues en el chat. Revócalo en Canvas cuando ya no lo necesites.
+
+## HTTP y despliegue remoto
+
+`fastmcp.json` declara un despliegue HTTP y `server.py` usa por defecto `0.0.0.0:8000` cuando se ejecuta como proceso. Eso sirve como comportamiento técnico existente, pero no convierte el proyecto en un servicio cloud listo para compartir. No hay Dockerfile, configuración de CI, lockfile ni autenticación propia.
+
+La documentación oficial de Canvas exige OAuth para aplicaciones usadas por múltiples usuarios. Un token personal es adecuado para pruebas manuales de una cuenta, pero no para distribuir este servidor a terceros, aunque cada usuario tenga un proceso separado. Antes de proponer una instalación remota se necesitan OAuth registrado con la institución, aislamiento de sesión y cuenta, autorización de origen, TLS, límites, revocación, auditoría y redacción de secretos. Estas medidas no están implementadas en este repositorio.
+
+## Fuentes
+
+- [FastMCP: ejecutar un servidor](https://gofastmcp.com/deployment/running-server): transporte explícito mediante CLI.
+- [uv: entornos virtuales](https://docs.astral.sh/uv/pip/environments/): referencia opcional para trabajar con entornos, sin requerir `uv` en esta guía.
+- [Canvas: OAuth2 y autenticación](https://developerdocs.instructure.com/services/canvas/oauth2/file.oauth): diferencia entre token personal y OAuth para aplicaciones de terceros.
+- [OpenAI Codex: servidores MCP](https://developers.openai.com/codex/mcp/): sintaxis de servidores MCP locales por STDIO.
+
+Para el plan de mejoras de instalación y accesibilidad, consulta [`docs/accessibility-and-installation.md`](docs/accessibility-and-installation.md).
